@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดตารางสอนครูอัตโนมัติ - Smart School Timetable Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 UMD -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Kanit and Sarabun -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .font-sarabun {
+            font-family: 'Sarabun', sans-serif;
+        }
+        
+
+        /* ตารางสอน: คอลัมน์ทุกช่องกว้างเท่ากัน */
+        .timetable-grid-table, .master-grid-table { table-layout: fixed; width: 100%; }
+        .timetable-grid-table col.col-day, .master-grid-table col.col-day { width: 84px; }
+        .timetable-grid-table th, .timetable-grid-table td,
+        .master-grid-table th, .master-grid-table td { overflow: hidden; word-break: break-word; }
+        .timetable-grid-table tbody tr { height: 104px; }
+        .timetable-grid-table tbody td > div { min-height: 94px; }
+        .timetable-grid-table tbody td { vertical-align: middle; }
+
+        /* Standard Print Style for Official Thai School A4 Timetable */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .printable-area {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                width: 100% !important;
+            }
+            .timetable-grid-table {
+                border: 2px solid #000000 !important;
+                width: 100% !important;
+            }
+            .timetable-grid-table th, .timetable-grid-table td {
+                border: 1px solid #000000 !important;
+            }
+            @page {
+                size: A4 landscape;
+                margin: 0.6cm;
+            }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <div id="app" class="flex-grow flex flex-col" v-cloak>
+        
+        <!-- Header / Navigation Bar -->
+        <header class="bg-gradient-to-r from-blue-950 via-indigo-900 to-slate-900 text-white shadow-lg no-print sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center py-3 gap-3">
+                <div class="flex items-center space-x-3">
+                    <!-- โลโก้โรงเรียนกุศลวิทยา -->
+                    <div class="bg-white p-1 rounded-2xl border border-amber-400/60 shadow-md flex items-center justify-center shrink-0">
+                        <img src="data:image/jpeg;base64,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" alt="โลโก้โรงเรียนกุศลวิทยา" class="w-14 h-14 object-contain rounded-xl">
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-extrabold tracking-wide flex items-center gap-2">
+                            ระบบจัดตารางสอนครูอัตโนมัติ
+                            <span class="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Auto-Scheduler AI</span>
+                        </h1>
+                        <p class="text-xs text-blue-200">Smart School Timetable Generator (ม.1 - ม.6)</p>
+                    </div>
+                </div>
+
+                <!-- Primary Top Action Buttons -->
+                <div class="flex items-center space-x-2 flex-wrap gap-y-2">
+                    <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition"
+                          :class="autoSaveStatus ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'">
+                        <i class="fa-solid" :class="autoSaveStatus ? 'fa-cloud-arrow-up text-emerald-400' : 'fa-circle-check'"></i>
+                        <span>{{ autoSaveStatus ? 'บันทึกอัตโนมัติแล้ว' : 'ซิงค์ข้อมูล...' }}</span>
+                    </span>
+
+                    <button @click="autoGenerateSchedule" :disabled="isGenerating" 
+                            class="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-md flex items-center space-x-2 border border-amber-300 active:scale-95 disabled:opacity-50">
+                        <i class="fa-solid" :class="isGenerating ? 'fa-spinner fa-spin text-amber-950' : 'fa-bolt'"></i>
+                        <span>{{ isGenerating ? 'กำลังจัดตาราง...' : '⚡ จัดตารางอัตโนมัติ' }}</span>
+                    </button>
+
+                    <button v-if="conflictCount > 0" @click="autoFixConflicts" :disabled="isGenerating"
+                            class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3 py-2 rounded-xl text-xs sm:text-sm transition flex items-center space-x-1.5 shadow-sm active:scale-95">
+                        <i class="fa-solid fa-wrench"></i>
+                        <span>แก้ไขข้อขัดแย้ง ({{ conflictCount }})</span>
+                    </button>
+
+                    <button @click="loadSampleData" class="bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition border border-slate-700 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-rotate-left text-amber-400"></i>
+                        <span class="hidden sm:inline">โหลดชุดข้อมูลตัวอย่างใหม่</span>
+                    </button>
+
+                    <button @click="printTimetable" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-print"></i>
+                        <span>พิมพ์ตารางสอน</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-grow w-full space-y-5">
+            
+            <!-- Tab Navigation Bar -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5 flex flex-wrap gap-1 no-print">
+                <button @click="activeTab = 'timetable'" :class="activeTab === 'timetable' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex-1 min-w-[150px] px-4 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-calendar-days text-amber-300"></i>
+                    <span>ตารางสอน (Timetable)</span>
+                </button>
+                <button @click="activeTab = 'teachers'" :class="activeTab === 'teachers' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex-1 min-w-[120px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                    <span>ข้อมูลครู ({{ teachers.length }})</span>
+                </button>
+                <button @click="activeTab = 'classes'" :class="activeTab === 'classes' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex-1 min-w-[120px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-users-rectangle"></i>
+                    <span>ชั้นเรียน ({{ classes.length }})</span>
+                </button>
+                <button @click="activeTab = 'subjects'" :class="activeTab === 'subjects' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex-1 min-w-[120px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-book"></i>
+                    <span>รายวิชา ({{ subjects.length }})</span>
+                </button>
+                <button @click="activeTab = 'rooms'" :class="activeTab === 'rooms' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex-1 min-w-[120px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-building"></i>
+                    <span>ห้องพิเศษ ({{ rooms.length }})</span>
+                </button>
+                <button @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex-1 min-w-[120px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>ตั้งค่าตาราง</span>
+                </button>
+            </div>
+
+            <div v-if="activeTab === 'timetable'" class="space-y-5">
+                <div class="no-print flex items-center justify-center gap-2 bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
+                    <span class="text-xs font-bold text-slate-500 mr-1">เลือกภาคเรียน:</span>
+                    <button v-for="t in [1, 2]" :key="t" @click="switchTerm(t)"
+                        :class="term === t ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                        class="px-5 py-2 rounded-xl text-sm font-bold transition">
+                        ภาคเรียนที่ {{ t }}
+                    </button>
+                    <span class="text-xs text-slate-500 ml-1">ปีการศึกษา {{ academicYear }}</span>
+                </div>
+                
+                <!-- Timetable Controls Bar -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col md:flex-row items-center justify-between gap-4 no-print">
+                    
+                    <div class="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">มุมมองตาราง:</span>
+                        
+                        <button @click="viewMode = 'class'" :class="viewMode === 'class' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <span>ประจำชั้นเรียน</span>
+                        </button>
+                        
+                        <button @click="viewMode = 'teacher'" :class="viewMode === 'teacher' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-chalkboard-user"></i>
+                            <span>ประจำครูผู้สอน</span>
+                        </button>
+                        
+                        <button @click="viewMode = 'room'" :class="viewMode === 'room' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-building"></i>
+                            <span>ประจำห้องพิเศษ</span>
+                        </button>
+                        
+                        <button @click="viewMode = 'master'" :class="viewMode === 'master' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-border-all"></i>
+                            <span>ตารางสอนรวม (Master Grid)</span>
+                        </button>
+                    </div>
+
+                    <!-- Target Selectors -->
+                    <div class="flex items-center space-x-3 w-full md:w-auto justify-end">
+                        <div v-if="viewMode === 'class'" class="w-full md:w-64">
+                            <select v-model="selectedClassId" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                                <option v-for="c in classes" :key="c.id" :value="c.id">ชั้นเรียน: {{ c.name }}</option>
+                            </select>
+                        </div>
+
+                        <div v-if="viewMode === 'teacher'" class="w-full md:w-64">
+                            <select v-model="selectedTeacherId" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                                <option v-for="t in teachers" :key="t.id" :value="t.id">ครู: {{ t.name }}</option>
+                            </select>
+                        </div>
+
+                        <div v-if="viewMode === 'room'" class="w-full md:w-64">
+                            <select v-model="selectedRoomId" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                                <option v-for="r in rooms" :key="r.id" :value="r.id">ห้อง: {{ r.name }}</option>
+                            </select>
+                        </div>
+
+                        <button @click="autoGenerateSchedule" :disabled="isGenerating" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1.5 shadow-sm whitespace-nowrap active:scale-95">
+                            <i class="fa-solid fa-arrows-rotate mr-1" :class="{'fa-spin': isGenerating}"></i>
+                            <span>สุ่มสลับตารางใหม่</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-md border border-slate-300 p-6 printable-area">
+                    
+                    <div class="text-center mb-6 border-b-2 border-slate-900 pb-4">
+                        <div class="flex items-center justify-center space-x-3 mb-2">
+                            <img src="data:image/jpeg;base64,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" alt="โลโก้โรงเรียนกุศลวิทยา" class="w-14 h-14 object-contain no-print">
+                            <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-sarabun">
+                                {{ schoolName }}
+                            </h2>
+                        </div>
+                        <h3 class="text-base sm:text-lg font-extrabold text-indigo-900 font-sarabun">
+                            {{ getTimetableTitle() }}
+                        </h3>
+                        <p class="text-xs sm:text-sm font-semibold text-slate-600 mt-1 font-sarabun">
+                            ภาคเรียนที่ {{ term }} ปีการศึกษา {{ academicYear }}
+                        </p>
+                    </div>
+
+                    <!-- Single Timetable View Grid -->
+                    <div v-if="viewMode !== 'master'" class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full border-collapse border-2 border-slate-900 text-center text-xs font-sarabun timetable-grid-table min-w-[1150px]">
+                            <colgroup>
+                                <col class="col-day">
+                                <col v-for="n in (settings.periodsPerDay + 1)" :key="n">
+                            </colgroup>
+                            <thead>
+                                <tr class="bg-slate-200 text-slate-900 font-extrabold border-b-2 border-slate-900">
+                                    <th class="p-2.5 border-r-2 border-slate-900 bg-slate-300">
+                                        วัน / เวลา
+                                    </th>
+                                    
+                                    <th class="p-2 border-r border-slate-400 bg-slate-200">
+                                        <div class="font-extrabold text-slate-900">คาบที่ 0</div>
+                                        <div class="text-[11px] font-mono text-slate-700 font-bold mt-0.5">08:20 - 08:30</div>
+                                        <div class="text-[10px] text-slate-600 font-medium">เข้าแถว / โฮมรูม</div>
+                                    </th>
+
+                                    <th v-for="p in settings.periodsPerDay" :key="p" class="p-2 border-r border-slate-400 last:border-r-0">
+                                        <div class="font-black text-slate-900 text-sm">คาบที่ {{ p }}</div>
+                                        <div class="text-[11px] font-mono text-slate-700 font-bold mt-0.5">{{ getPeriodTime(p) }}</div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-400 border-b-2 border-slate-900">
+                                <tr v-for="(day, dayIdx) in settings.days" :key="day" class="h-20">
+                                    <td class="p-2 font-black text-slate-900 border-r-2 border-slate-900 text-xs uppercase bg-slate-100">
+                                        <div class="flex items-center justify-center space-x-1.5">
+                                            <span class="w-3.5 h-3.5 rounded-full border border-black/20 no-print" :class="getDayColorClass(dayIdx)"></span>
+                                            <span class="font-bold">{{ day }}</span>
+                                        </div>
+                                    </td>
+
+                                    <td class="p-1 border-r border-slate-400 bg-amber-50/60 text-[11px] text-amber-900 font-bold align-middle">
+                                        เข้าแถวเคารพธงชาติ / โฮมรูม
+                                    </td>
+
+                                    <td v-for="p in settings.periodsPerDay" :key="p" 
+                                        @click="openSlotModal(dayIdx, p)"
+                                        :class="{
+                                            'bg-amber-100/70': p === settings.lunchPeriod && settings.fixLunchBreak,
+                                            'hover:bg-indigo-50/80 cursor-pointer': !(p === settings.lunchPeriod && settings.fixLunchBreak)
+                                        }"
+                                        class="p-1 border-r border-slate-400 last:border-r-0 relative transition group align-middle">
+                                        
+                                        <div v-if="p === settings.lunchPeriod && settings.fixLunchBreak" class="h-full flex flex-col items-center justify-center text-amber-950 font-bold text-xs">
+                                            <i class="fa-solid fa-utensils text-xs mb-1 text-amber-700 no-print"></i>
+                                            <span>พักรับประทานอาหาร</span>
+                                        </div>
+
+                                        <div v-else-if="getSlotData(dayIdx, p)" class="h-full p-2 rounded-lg flex flex-col justify-between text-left border shadow-2xs group-hover:shadow-sm"
+                                             :style="{ backgroundColor: getSlotData(dayIdx, p).color + '15', borderColor: getSlotData(dayIdx, p).color + '50' }">
+                                            
+                                            <div>
+                                                <div class="font-extrabold text-slate-900 text-xs line-clamp-2 leading-snug">
+                                                    {{ getSlotData(dayIdx, p).subjectName }}
+                                                </div>
+                                                <div class="text-[10px] text-indigo-900 font-mono font-black">
+                                                    {{ getSlotData(dayIdx, p).subjectCode }}
+                                                </div>
+                                            </div>
+
+                                            <div class="text-[10px] font-bold text-slate-800 space-y-0.5 mt-1">
+                                                <div v-if="viewMode !== 'teacher'" class="truncate text-slate-700">
+                                                    <i class="fa-solid fa-user-tie text-[9px] text-slate-400 mr-0.5 no-print"></i>
+                                                    {{ getSlotData(dayIdx, p).teacherName }}
+                                                </div>
+                                                <div v-else class="truncate text-indigo-900 font-black">
+                                                    <i class="fa-solid fa-users text-[9px] text-indigo-500 mr-0.5 no-print"></i>
+                                                    ชั้น {{ getSlotData(dayIdx, p).className }}
+                                                </div>
+
+                                                <div class="flex items-center justify-between text-[9px] font-bold pt-1 border-t border-slate-200/80">
+                                                    <span v-if="getSlotData(dayIdx, p).roomName" class="text-purple-900">
+                                                        <i class="fa-solid fa-location-dot text-[8px] mr-0.5 no-print"></i>{{ getSlotData(dayIdx, p).roomName }}
+                                                    </span>
+                                                    <span v-else class="text-slate-400 font-normal">
+                                                        ห้องปกติ
+                                                    </span>
+                                                    <span class="text-slate-900 font-black">
+                                                        {{ getSlotData(dayIdx, p).className }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div v-else class="h-full flex items-center justify-center text-slate-300 text-xs font-semibold">
+                                            <span>-</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Master View Grid Table -->
+                    <div v-else class="space-y-6 overflow-x-auto custom-scrollbar">
+                        <div v-for="c in classes" :key="c.id" class="border-2 border-slate-900 rounded-xl overflow-hidden font-sarabun">
+                            <div class="bg-slate-900 text-white px-4 py-2 font-black text-sm flex items-center justify-between">
+                                <span class="flex items-center gap-2">
+                                    <i class="fa-solid fa-graduation-cap text-amber-400"></i>
+                                    <span>ตารางเรียนประจำชั้นเรียน: {{ c.name }}</span>
+                                </span>
+                                <span class="text-xs font-semibold text-slate-300">ภาคเรียนที่ {{ term }}/{{ academicYear }}</span>
+                            </div>
+                            <table class="w-full border-collapse text-center text-xs border-t border-slate-900 master-grid-table min-w-[1100px]">
+                                <colgroup>
+                                    <col class="col-day">
+                                    <col v-for="n in (settings.periodsPerDay + 1)" :key="n">
+                                </colgroup>
+                                <thead>
+                                    <tr class="bg-slate-200 text-slate-900 font-bold border-b border-slate-400">
+                                        <th class="p-1.5 bg-slate-300 border-r border-slate-400">วัน</th>
+                                        <th class="p-1.5 border-r border-slate-300 bg-slate-200">คาบ 0 (08:20-08:30)</th>
+                                        <th v-for="p in settings.periodsPerDay" :key="p" class="p-1.5 border-r border-slate-300 last:border-r-0">
+                                            คาบ {{ p }} ({{ getPeriodTime(p) }})
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-300">
+                                    <tr v-for="(day, dayIdx) in settings.days" :key="day" class="h-14">
+                                        <td class="p-1 font-bold bg-slate-100 text-slate-900 border-r border-slate-400 text-xs">
+                                            {{ day }}
+                                        </td>
+                                        <td class="p-1 border-r border-slate-300 bg-amber-50/60 text-[10px] text-amber-900 font-bold align-middle">
+                                            เข้าแถว / โฮมรูม
+                                        </td>
+                                        <td v-for="p in settings.periodsPerDay" :key="p" class="p-1 border-r border-slate-300 last:border-r-0 align-middle">
+                                            <div v-if="p === settings.lunchPeriod && settings.fixLunchBreak" class="h-full flex items-center justify-center text-[10px] text-amber-900 font-bold bg-amber-50 rounded">
+                                                พักกลางวัน
+                                            </div>
+                                            <div v-else-if="scheduleMatrix[c.id]?.[dayIdx]?.[p]" class="h-full p-1.5 rounded text-left flex flex-col justify-between border"
+                                                 :style="{ backgroundColor: getTeacherColor(scheduleMatrix[c.id][dayIdx][p].teacherId) + '15', borderColor: getTeacherColor(scheduleMatrix[c.id][dayIdx][p].teacherId) + '50' }">
+                                                <div class="font-extrabold text-slate-900 text-[11px] truncate">
+                                                    {{ scheduleMatrix[c.id][dayIdx][p].name }}
+                                                </div>
+                                                <div class="text-[9px] text-slate-700 flex justify-between font-bold">
+                                                    <span class="truncate">{{ getTeacherName(scheduleMatrix[c.id][dayIdx][p].teacherId) }}</span>
+                                                    <span v-if="scheduleMatrix[c.id][dayIdx][p].roomId" class="text-purple-900 ml-1">
+                                                        {{ getRoomName(scheduleMatrix[c.id][dayIdx][p].roomId) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div v-else class="text-slate-300 text-[10px] font-semibold">-</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Print Signature Footer -->
+                    <div class="mt-8 pt-6 border-t border-slate-300 grid grid-cols-2 gap-8 text-center text-xs font-sarabun">
+                        <div>
+                            <p class="mb-10">ลงชื่อ.......................................................... ครูประจำชั้น / ครูผู้สอน</p>
+                            <p>( .......................................................... )</p>
+                            <p class="text-slate-500 mt-1">วันที่ ...... เดือน ........................ พ.ศ. ........</p>
+                        </div>
+                        <div>
+                            <p class="mb-10">ลงชื่อ.......................................................... ผู้อำนวยการสถานศึกษา</p>
+                            <p>( .......................................................... )</p>
+                            <p class="text-slate-500 mt-1">ผู้อำนวยการ{{ schoolName }}</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 no-print">
+                    <div class="md:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+                        <h3 class="font-extrabold text-slate-800 text-sm flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-chart-bar text-indigo-600"></i>
+                                <span>สรุปภาระงานสอนครูประจำสัปดาห์ (Auto Computed)</span>
+                            </span>
+                            <span class="text-xs text-slate-500 font-normal">เกณฑ์มาตรฐาน: 18 - 24 คาบ/สัปดาห์</span>
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div v-for="t in teachers" :key="t.id" class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-3 h-8 rounded-full shadow-2xs" :style="{ backgroundColor: t.color }"></div>
+                                    <div>
+                                        <div class="font-bold text-slate-800 text-xs truncate max-w-[130px]">{{ t.name }}</div>
+                                        <div class="text-[10px] text-slate-400 font-mono">{{ t.code }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-lg font-black text-indigo-600">{{ getTeacherWorkload(t.id) }}</span>
+                                    <span class="text-[10px] text-slate-500"> คาบ</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-extrabold text-slate-800 text-sm flex items-center space-x-2 mb-3">
+                                <i class="fa-solid fa-robot text-amber-500"></i>
+                                <span>สถานะการประมวลผลตาราง</span>
+                            </h3>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex justify-between p-2 bg-slate-50 rounded-lg">
+                                    <span class="text-slate-600">คาบเรียนที่จัดสำเร็จ:</span>
+                                    <span class="font-bold text-emerald-600">{{ totalAssignedSlots }} คาบ</span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-slate-50 rounded-lg">
+                                    <span class="text-slate-600">ข้อขัดแย้ง (Conflicts):</span>
+                                    <span class="font-bold" :class="conflictCount > 0 ? 'text-rose-600' : 'text-emerald-600'">
+                                        {{ conflictCount }} รายการ
+                                    </span>
+                                </div>
+                                <div class="flex justify-between p-2 bg-slate-50 rounded-lg">
+                                    <span class="text-slate-600">จำนวนชั้นเรียนทั้งหมด:</span>
+                                    <span class="font-bold text-indigo-600">{{ classes.length }} ห้อง</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <button @click="autoFixConflicts" :disabled="isGenerating || conflictCount === 0" 
+                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-sm flex items-center justify-center space-x-2 disabled:opacity-40">
+                                <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+                                <span>จัดตารางแก้ไขความขัดแย้งอัตโนมัติ</span>
+                            </button>
+                            <button @click="autoGenerateSchedule" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 rounded-xl text-xs transition shadow-sm flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-bolt text-amber-400"></i>
+                                <span>สร้างตารางใหม่อัตโนมัติ 100%</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div v-if="activeTab === 'teachers'" class="space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">จัดการข้อมูลครูผู้สอน</h2>
+                        <p class="text-xs text-slate-500">กำหนดชื่อ รหัส และสีประจำตัวในตาราง</p>
+                    </div>
+                    <button @click="openTeacherModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-2 self-start sm:self-auto">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>เพิ่มครูผู้สอน</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div v-for="t in teachers" :key="t.id" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-4 h-12 rounded-lg" :style="{ backgroundColor: t.color }"></div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">{{ t.name }}</h3>
+                                <p class="text-xs text-slate-400 font-mono">รหัส: {{ t.code }}</p>
+                                <p class="text-xs text-indigo-600 font-bold mt-0.5">ภาระสอน: {{ getTeacherWorkload(t.id) }} คาบ/สัปดาห์</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button @click="openTeacherModal(t)" class="p-2 text-slate-400 hover:text-indigo-600 rounded-lg">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button @click="deleteTeacher(t.id)" class="p-2 text-slate-400 hover:text-rose-600 rounded-lg">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="activeTab === 'classes'" class="space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">จัดการข้อมูลชั้นเรียน (มีทั้งหมด {{ classes.length }} ชั้นเรียน)</h2>
+                        <p class="text-xs text-slate-500">กำหนดระดับชั้นเรียนและกลุ่มผู้เรียน</p>
+                    </div>
+                    <button @click="openClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-2 self-start sm:self-auto">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>เพิ่มชั้นเรียน</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div v-for="c in classes" :key="c.id" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                                <i class="fa-solid fa-graduation-cap text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm">{{ c.name }}</h3>
+                                <p class="text-xs text-slate-500">วิชาเรียน: {{ getClassSubjectCount(c.id) }} วิชา</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button @click="openClassModal(c)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button @click="deleteClass(c.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="activeTab === 'subjects'" class="space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">จัดการรายวิชาและโครงสร้างหลักสูตร</h2>
+                        <p class="text-xs text-slate-500">กำหนดรายวิชา คาบเรียน ครูผู้สอน และห้องเรียนพิเศษ</p>
+                    </div>
+                    <button @click="openSubjectModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-2 self-start sm:self-auto">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>เพิ่มรายวิชา</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs sm:text-sm">
+                        <thead class="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold">
+                            <tr>
+                                <th class="p-3.5">รหัสวิชา</th>
+                                <th class="p-3.5">ชื่อรายวิชา</th>
+                                <th class="p-3.5">ชั้นเรียน</th>
+                                <th class="p-3.5">คาบ/สัปดาห์</th>
+                                <th class="p-3.5">ครูผู้สอน</th>
+                                <th class="p-3.5">ห้องเรียนพิเศษ</th>
+                                <th class="p-3.5 text-right">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 font-medium">
+                            <tr v-for="s in subjects" :key="s.id" class="hover:bg-slate-50/80 transition">
+                                <td class="p-3.5 font-mono text-indigo-700 font-bold">{{ s.code }}</td>
+                                <td class="p-3.5 font-bold text-slate-800">{{ s.name }}</td>
+                                <td class="p-3.5">
+                                    <span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg font-bold text-xs border border-slate-200">
+                                        {{ getClassName(s.classId) }}
+                                    </span>
+                                </td>
+                                <td class="p-3.5 font-bold text-indigo-600">{{ s.periodsPerWeek }} คาบ</td>
+                                <td class="p-3.5 text-slate-800 font-bold">{{ getTeacherName(s.teacherId) }}</td>
+                                <td class="p-3.5">
+                                    <span v-if="s.roomId" class="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold border border-purple-200">
+                                        <i class="fa-solid fa-location-dot mr-1"></i>{{ getRoomName(s.roomId) }}
+                                    </span>
+                                    <span v-else class="text-slate-400 text-xs">ห้องปกติ</span>
+                                </td>
+                                <td class="p-3.5 text-right space-x-1">
+                                    <button @click="openSubjectModal(s)" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded-lg text-xs font-semibold">แก้ไข</button>
+                                    <button @click="deleteSubject(s.id)" class="text-rose-600 hover:text-rose-900 bg-rose-50 px-2.5 py-1 rounded-lg text-xs font-semibold">ลบ</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="activeTab === 'rooms'" class="space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">จัดการห้องปฏิบัติการและห้องเรียนพิเศษ</h2>
+                        <p class="text-xs text-slate-500">เช่น ห้องปฏิบัติการคอมพิวเตอร์, ห้องวิทย์, สนามกีฬา</p>
+                    </div>
+                    <button @click="openRoomModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-2 self-start sm:self-auto">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>เพิ่มห้องพิเศษ</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div v-for="r in rooms" :key="r.id" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex justify-between items-start">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-3 bg-purple-50 text-purple-600 rounded-xl">
+                                <i class="fa-solid fa-building text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-base">{{ r.name }}</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">สถานที่: {{ r.location || 'อาคารหลัก' }}</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button @click="openRoomModal(r)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg"><i class="fa-solid fa-pen"></i></button>
+                            <button @click="deleteRoom(r.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="activeTab === 'settings'" class="space-y-4">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-2xl space-y-4">
+                    <h2 class="text-base font-bold text-slate-800 pb-2 border-b border-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-600"></i>
+                        <span>กำหนดโครงสร้างตารางและเวลาเรียน</span>
+                    </h2>
+
+                    <div class="space-y-3 text-xs sm:text-sm">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">ชื่อโรงเรียน / สถานศึกษา</label>
+                            <input type="text" v-model="schoolName" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-medium">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">ภาคเรียนที่</label>
+                                <select :value="term" @change="switchTerm($event.target.value)" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-medium"><option value="1">ภาคเรียนที่ 1</option><option value="2">ภาคเรียนที่ 2</option></select>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">ปีการศึกษา</label>
+                                <input type="number" v-model.number="academicYear" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-medium">
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">เวลาเริ่มคาบแรก</label>
+                                <input type="time" v-model="settings.startTime" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-medium">
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">ระยะเวลาต่อคาบ (นาที)</label>
+                                <input type="number" v-model.number="settings.periodDuration" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 font-medium">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Slot Edit Modal -->
+        <div v-if="showSlotModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-pen-to-square text-indigo-600"></i>
+                        <span>แก้ไขคาบเรียน (วัน{{ settings.days[editingSlot.dayIdx] }} คาบที่ {{ editingSlot.period }})</span>
+                    </h3>
+                    <button @click="showSlotModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">เลือกวิชาที่จะจัดลงคาบนี้:</label>
+                    <select v-model="selectedSubjectForSlot" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs sm:text-sm font-semibold">
+                        <option value="">-- ว่าง (ไม่มีเรียน) --</option>
+                        <optgroup label="วิชาของชั้นนี้">
+                            <option v-for="s in getAvailableSubjectsForClass(selectedClassId)" :key="s.id" :value="s.id">
+                                {{ s.code }} - {{ s.name }} ({{ getTeacherName(s.teacherId) }})
+                            </option>
+                        </optgroup>
+                        <optgroup label="วิชาอื่นที่ครูสอน (ทั้งหมด)">
+                            <option v-for="o in getExtraSubjectOptions(selectedClassId)" :key="o.value" :value="o.value">
+                                {{ o.name }} ({{ getTeacherName(o.teacherId) }})
+                            </option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="flex justify-between items-center pt-2">
+                    <button @click="clearCurrentSlot" class="text-rose-600 hover:text-rose-800 text-xs font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-trash"></i><span>ล้างคาบนี้</span>
+                    </button>
+                    <div class="space-x-2">
+                        <button @click="showSlotModal = false" class="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold">ยกเลิก</button>
+                        <button @click="saveSlotEdit" class="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">บันทึก</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Teacher Modal -->
+        <div v-if="showTeacherModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-bold text-slate-800">{{ editingTeacher.id ? 'แก้ไขข้อมูลครู' : 'เพิ่มครูผู้สอน' }}</h3>
+                    <button @click="showTeacherModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="space-y-3 text-xs sm:text-sm">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">รหัสประจำตัวครู</label>
+                        <input type="text" v-model="editingTeacher.code" placeholder="เช่น T01" class="w-full border border-slate-300 rounded-xl p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ชื่อ-นามสกุล (พร้อมวิชาหลัก)</label>
+                        <input type="text" v-model="editingTeacher.name" placeholder="เช่น ครูสมชาย ใจดี (คณิตศาสตร์)" class="w-full border border-slate-300 rounded-xl p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">สีประจำตัวในตาราง</label>
+                        <input type="color" v-model="editingTeacher.color" class="w-full h-10 rounded-xl cursor-pointer border border-slate-300 p-1">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showTeacherModal = false" class="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold">ยกเลิก</button>
+                    <button @click="saveTeacher" class="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">บันทึก</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Class Modal -->
+        <div v-if="showClassModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-bold text-slate-800">{{ editingClass.id ? 'แก้ไขชั้นเรียน' : 'เพิ่มชั้นเรียน' }}</h3>
+                    <button @click="showClassModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="space-y-3 text-xs sm:text-sm">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ชื่อชั้นเรียน / ห้องเรียน</label>
+                        <input type="text" v-model="editingClass.name" placeholder="เช่น ชั้นมัธยมศึกษาปีที่ 1" class="w-full border border-slate-300 rounded-xl p-2.5">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showClassModal = false" class="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold">ยกเลิก</button>
+                    <button @click="saveClass" class="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">บันทึก</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Modal -->
+        <div v-if="showSubjectModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-bold text-slate-800">{{ editingSubject.id ? 'แก้ไขรายวิชา' : 'เพิ่มรายวิชา' }}</h3>
+                    <button @click="showSubjectModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="space-y-3 text-xs sm:text-sm">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">รหัสวิชา</label>
+                            <input type="text" v-model="editingSubject.code" placeholder="ค21101" class="w-full border border-slate-300 rounded-xl p-2.5">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">คาบ/สัปดาห์</label>
+                            <input type="number" min="1" max="10" v-model.number="editingSubject.periodsPerWeek" class="w-full border border-slate-300 rounded-xl p-2.5">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ชื่อรายวิชา</label>
+                        <input type="text" v-model="editingSubject.name" placeholder="คณิตศาสตร์พื้นฐาน" class="w-full border border-slate-300 rounded-xl p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ชั้นเรียน</label>
+                        <select v-model="editingSubject.classId" class="w-full border border-slate-300 rounded-xl p-2.5">
+                            <option v-for="c in classes" :key="c.id" :value="c.id">{{ c.name }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ครูผู้สอน</label>
+                        <select v-model="editingSubject.teacherId" class="w-full border border-slate-300 rounded-xl p-2.5">
+                            <option v-for="t in teachers" :key="t.id" :value="t.id">{{ t.name }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ห้องพิเศษ (ถ้ามี)</label>
+                        <select v-model="editingSubject.roomId" class="w-full border border-slate-300 rounded-xl p-2.5">
+                            <option value="">-- ไม่ใช้ห้องพิเศษ (เรียนห้องปกติ) --</option>
+                            <option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showSubjectModal = false" class="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold">ยกเลิก</button>
+                    <button @click="saveSubject" class="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">บันทึก</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Room Modal -->
+        <div v-if="showRoomModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-bold text-slate-800">{{ editingRoom.id ? 'แก้ไขห้องพิเศษ' : 'เพิ่มห้องปฏิบัติการ/พิเศษ' }}</h3>
+                    <button @click="showRoomModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="space-y-3 text-xs sm:text-sm">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ชื่อห้องพิเศษ</label>
+                        <input type="text" v-model="editingRoom.name" placeholder="เช่น ห้องปฏิบัติการคอมพิวเตอร์ 1" class="w-full border border-slate-300 rounded-xl p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">สถานที่ / อาคาร</label>
+                        <input type="text" v-model="editingRoom.location" placeholder="เช่น อาคาร 2 ชั้น 3" class="w-full border border-slate-300 rounded-xl p-2.5">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showRoomModal = false" class="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold">ยกเลิก</button>
+                    <button @click="saveRoom" class="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">บันทึก</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const IS_GAS = (typeof google !== 'undefined' && google.script && google.script.run) ? true : false;
+        const STORAGE_KEY = 'SMART_TIMETABLE_APP_DATA_V4';
+
+        // รายวิชาทั้งหมดที่ครูแต่ละคนสอน (ใช้เลือกลงคาบได้ทุกชั้น)
+        const TEACHER_SUBJECT_CATALOG = {"t1": ["การอ่านและพิจารณาหนังสือ", "การอ่านเพื่อความเข้าใจ", "ภาษาไทยพื้นฐาน", "วรรณคดีมรดก"], "t2": ["ภาษาไทยพื้นฐาน", "การเขียนเชิงสร้างสรรค์", "ภาษาไทยเพื่อการสื่อสาร"], "t3": ["คณิตศาสตร์พื้นฐาน", "คณิตศาสตร์เพิ่มเติม", "วิทยาศาสตร์โลกและอวกาศ", "โลกดาราศาสตร์ และอวกาศ"], "t4": ["คณิตศาสตร์พื้นฐาน", "คณิตศาสตร์เพิ่มเติม"], "t5": ["วิทยาศาสตร์พื้นฐาน", "วิทยาศาสตร์ชีวภาพ", "ฟิสิกส์", "เคมี", "ชีววิทยา"], "t6": ["วิทยาการคำนวณ", "การสร้างหนังสืออิเล็กทรอนิกส์", "การออกแบบผลิตภัณฑ์", "วิทยาการคอมพิวเตอร์", "การเขียนโปรแกรม", "ช่างซ่อมบำรุงคอมพิวเตอร์"], "t7": ["สังคมศึกษา", "หลักสูตรต้านทุจริตศึกษา", "ท้องถิ่นของเรา"], "t8": ["ประวัติศาสตร์", "สังคมศึกษา"], "t9": ["สุขศึกษา", "พลศึกษา", "สมรรถภาพทางกาย", "แบดมินตัน", "แอโรบิกแดนซ์", "วอลเลย์บอล"], "t10": ["หน้าที่พลเมือง", "การเคลื่อนไหวร่างกาย", "พลศึกษา", "สุขศึกษา", "เปตอง", "สุขศึกษาและพลศึกษา"], "t11": ["ดนตรีและนาฏศิลป์", "ดนตรีสากล-ขับร้องสากล", "การสื่อสารและการนำเสนอ", "ศิลปะ", "ดนตรีปฏิบัติ", "นาฏศิลป์"], "t12": ["การงานอาชีพ", "การขยายพันธุ์พืช", "การปลูกเมล่อน", "เกษตรท้องถิ่น"], "t13": ["ภาษาอังกฤษพื้นฐาน", "อังกฤษในชีวิตประจำวัน"]};
+
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    activeTab: 'timetable',
+                    viewMode: 'class', // 'class', 'teacher', 'room', 'master'
+                    selectedClassId: '',
+                    selectedTeacherId: '',
+                    selectedRoomId: '',
+
+                    schoolName: 'โรงเรียนกุศลวิทยา',
+                    term: 1,
+                    academicYear: 2026,
+
+                    settings: {
+                        days: ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'],
+                        periodsPerDay: 8,
+                        fixLunchBreak: true,
+                        lunchPeriod: 5
+                    },
+
+                    autoSaveStatus: true,
+                    isGenerating: false,
+                    conflictCount: 0,
+                    totalAssignedSlots: 0,
+
+                    // Modals control
+                    showSlotModal: false,
+                    showTeacherModal: false,
+                    showClassModal: false,
+                    showSubjectModal: false,
+                    showRoomModal: false,
+
+                    editingSlot: { dayIdx: 0, period: 1 },
+                    selectedSubjectForSlot: '',
+
+                    editingTeacher: { id: '', code: '', name: '', color: '#3b82f6' },
+                    editingClass: { id: '', name: '' },
+                    editingSubject: { id: '', code: '', name: '', classId: '', periodsPerWeek: 3, teacherId: '', roomId: '' },
+                    editingRoom: { id: '', name: '', location: '' },
+
+                    // Main App Data
+                    teachers: [],
+                    classes: [],
+                    subjects: [],
+                    rooms: [],
+
+                    // Schedule Data Matrix: { classId: { dayIdx: { periodNum: { subjectId, teacherId, roomId, name, code } } } }
+                    scheduleMatrix: {},
+                    matrices: {},
+                    cloudReady: false,
+                };
+            },
+            watch: {
+                teachers: { handler() { this.persistToLocalStorage(); }, deep: true },
+                classes: { handler() { this.persistToLocalStorage(); }, deep: true },
+                subjects: { handler() { this.persistToLocalStorage(); }, deep: true },
+                rooms: { handler() { this.persistToLocalStorage(); }, deep: true },
+                scheduleMatrix: { handler() { this.persistToLocalStorage(); }, deep: true },
+                schoolName() { this.persistToLocalStorage(); },
+                term() { this.persistToLocalStorage(); },
+                academicYear() { this.persistToLocalStorage(); }
+            },
+            mounted() {
+                if (IS_GAS) {
+                    // โหมด Google Apps Script: โหลดข้อมูลจาก Google Sheets
+                    const finish = (ok) => {
+                        if (!ok) ok = this.loadFromLocalStorage();
+                        if (!ok) this.loadSampleData();
+                        this.cloudReady = true;
+                        this.persistToLocalStorage();
+                    };
+                    google.script.run
+                        .withSuccessHandler((raw) => {
+                            let ok = false;
+                            try { if (raw) ok = this.applyPayload(JSON.parse(raw)); } catch (e) { console.error(e); }
+                            finish(ok);
+                        })
+                        .withFailureHandler((err) => { console.error('Cloud load error', err); finish(false); })
+                        .getData();
+                } else {
+                    let loaded = this.loadFromLocalStorage();
+                    if (!loaded) {
+                        this.loadSampleData();
+                    }
+                }
+            },
+            methods: {
+                async switchTerm(n) {
+                    n = Number(n);
+                    if (!n || n === this.term) return;
+                    this.matrices[this.term] = this.scheduleMatrix;
+                    this.term = n;
+                    const saved = this.matrices[n];
+                    this.scheduleMatrix = saved || {};
+                    this.matrices[n] = this.scheduleMatrix;
+                    this.recountStats();
+                    if (!saved || Object.keys(saved).length === 0) {
+                        await this.autoGenerateSchedule();
+                    }
+                    this.persistToLocalStorage();
+                },
+
+                persistToLocalStorage() {
+                    if (IS_GAS && !this.cloudReady) return;
+                    try {
+                        this.matrices[this.term] = this.scheduleMatrix;
+                        const payload = {
+                            schoolName: this.schoolName,
+                            term: this.term,
+                            academicYear: this.academicYear,
+                            teachers: this.teachers,
+                            classes: this.classes,
+                            subjects: this.subjects,
+                            rooms: this.rooms,
+                            settings: this.settings,
+                            scheduleMatrix: this.scheduleMatrix,
+                            matrices: this.matrices
+                        };
+                        const str = JSON.stringify(payload);
+                        this.queueCloudSave(str);
+                        localStorage.setItem(STORAGE_KEY, str);
+                        this.autoSaveStatus = true;
+                    } catch (e) {
+                        console.error("Auto-save error", e);
+                    }
+                },
+
+                applyPayload(parsed) {
+                    if (parsed && parsed.teachers && parsed.classes && parsed.classes.length === 9) {
+                        this.schoolName = parsed.schoolName || this.schoolName;
+                        this.term = parsed.term || this.term;
+                        this.academicYear = parsed.academicYear || this.academicYear;
+                        this.teachers = parsed.teachers || [];
+                        this.classes = parsed.classes || [];
+                        this.subjects = parsed.subjects || [];
+                        this.rooms = parsed.rooms || [];
+                        this.settings = parsed.settings || this.settings;
+                        this.matrices = parsed.matrices || {};
+                        this.scheduleMatrix = this.matrices[this.term] || parsed.scheduleMatrix || {};
+                        this.matrices[this.term] = this.scheduleMatrix;
+
+                        if (this.classes.length > 0) this.selectedClassId = this.classes[0].id;
+                        if (this.teachers.length > 0) this.selectedTeacherId = this.teachers[0].id;
+                        if (this.rooms.length > 0) this.selectedRoomId = this.rooms[0].id;
+
+                        this.recountStats();
+                        return true;
+                    }
+                    return false;
+                },
+
+                loadFromLocalStorage() {
+                    try {
+                        const raw = localStorage.getItem(STORAGE_KEY);
+                        if (!raw) return false;
+                        return this.applyPayload(JSON.parse(raw));
+                    } catch (e) {
+                        console.error("Load state error", e);
+                    }
+                    return false;
+                },
+
+                queueCloudSave(str) {
+                    if (!IS_GAS || !this.cloudReady) return;
+                    clearTimeout(this._cloudTimer);
+                    this._cloudTimer = setTimeout(() => {
+                        google.script.run
+                            .withSuccessHandler(() => { this.autoSaveStatus = true; })
+                            .withFailureHandler((err) => { console.error('Cloud save error', err); this.autoSaveStatus = false; })
+                            .saveData(str);
+                    }, 1500);
+                },
+
+                loadSampleData() {
+                    this.teachers = [
+                        { id: 't1', code: 'T01', name: 'นายคเณศ สินไชย', color: '#3b82f6' },
+                        { id: 't2', code: 'T02', name: 'นางสาวศิริพร เพชรเที่ยง', color: '#ec4899' },
+                        { id: 't3', code: 'T03', name: 'นางสาวพิชญามน เกษมคุณ', color: '#10b981' },
+                        { id: 't4', code: 'T04', name: 'นายสาริน ปักษา', color: '#f59e0b' },
+                        { id: 't5', code: 'T05', name: 'นายทินกร ไทยเจริญ', color: '#06b6d4' },
+                        { id: 't6', code: 'T06', name: 'ว่าที่ร.ต.ศิวะพล มุสิกุล', color: '#8b5cf6' },
+                        { id: 't7', code: 'T07', name: 'นายธนวัฒน์ ดีกรุ่น', color: '#6366f1' },
+                        { id: 't8', code: 'T08', name: 'นายวันชัย จตุรภัทรศิริ', color: '#14b8a6' },
+                        { id: 't9', code: 'T09', name: 'นายสุทธิภัทร แสงสว่าง', color: '#e11d48' },
+                        { id: 't10', code: 'T10', name: 'ว่าที่ร้อยตรีราเชนทร์ ค้ำคูณ', color: '#f97316' },
+                        { id: 't11', code: 'T11', name: 'นายพิเชษฐ์ คงศรี', color: '#a855f7' },
+                        { id: 't12', code: 'T12', name: 'นายกัมพล นิยมหาญ', color: '#84cc16' },
+                        { id: 't13', code: 'T13', name: 'นายศุภกร ฉิมบุญอยู่', color: '#0ea5e9' }
+                    ];
+
+                    // 9 Classes exactly as requested
+                    this.classes = [
+                        { id: 'c1', name: 'ชั้นมัธยมศึกษาปีที่ 1' },
+                        { id: 'c2', name: 'ชั้นมัธยมศึกษาปีที่ 2' },
+                        { id: 'c3', name: 'ชั้นมัธยมศึกษาปีที่ 3' },
+                        { id: 'c4', name: 'ชั้นมัธยมศึกษาปีที่ 4 สายวิทย์' },
+                        { id: 'c5', name: 'ชั้นมัธยมศึกษาปีที่ 4 สายศิลป์' },
+                        { id: 'c6', name: 'ชั้นมัธยมศึกษาปีที่ 5 สายวิทย์' },
+                        { id: 'c7', name: 'ชั้นมัธยมศึกษาปีที่ 5 สายศิลป์' },
+                        { id: 'c8', name: 'ชั้นมัธยมศึกษาปีที่ 6 สายวิทย์' },
+                        { id: 'c9', name: 'ชั้นมัธยมศึกษาปีที่ 6 สายศิลป์' }
+                    ];
+
+                    this.rooms = [
+                        { id: 'r1', name: 'ห้องปฏิบัติการคอมพิวเตอร์ 1', location: 'อาคาร 2 ชั้น 3' },
+                        { id: 'r2', name: 'ห้องปฏิบัติการวิทยาศาสตร์', location: 'อาคาร 1 ชั้น 2' },
+                        { id: 'r3', name: 'อาคารพลศึกษา / สนามฟุตบอล', location: 'ลานกิจกรรม' }
+                    ];
+
+                    // Subjects configuration for all 9 classes
+                    this.subjects = [
+                        // c1
+                        { id: 's1', code: 'ท21101', name: 'ภาษาไทยพื้นฐาน', classId: 'c1', periodsPerWeek: 3, teacherId: 't1', roomId: '' },
+                        { id: 's2', code: 'ท21102', name: 'การอ่านเพื่อความเข้าใจ', classId: 'c1', periodsPerWeek: 2, teacherId: 't1', roomId: '' },
+                        { id: 's3', code: 'ค21103', name: 'คณิตศาสตร์พื้นฐาน', classId: 'c1', periodsPerWeek: 3, teacherId: 't4', roomId: '' },
+                        { id: 's4', code: 'ว21104', name: 'วิทยาศาสตร์พื้นฐาน', classId: 'c1', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's5', code: 'ส21105', name: 'สังคมศึกษา', classId: 'c1', periodsPerWeek: 2, teacherId: 't7', roomId: '' },
+                        { id: 's6', code: 'ส21106', name: 'ประวัติศาสตร์', classId: 'c1', periodsPerWeek: 1, teacherId: 't8', roomId: '' },
+                        { id: 's7', code: 'พ21107', name: 'สุขศึกษาและพลศึกษา', classId: 'c1', periodsPerWeek: 2, teacherId: 't10', roomId: 'r3' },
+                        { id: 's8', code: 'ว21108', name: 'วิทยาการคำนวณ', classId: 'c1', periodsPerWeek: 2, teacherId: 't6', roomId: 'r1' },
+                        { id: 's9', code: 'อ21109', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c1', periodsPerWeek: 3, teacherId: 't13', roomId: '' },
+                        { id: 's10', code: 'ศ21110', name: 'ศิลปะ', classId: 'c1', periodsPerWeek: 1, teacherId: 't11', roomId: '' },
+                        { id: 's11', code: 'ง21111', name: 'การงานอาชีพ', classId: 'c1', periodsPerWeek: 2, teacherId: 't12', roomId: '' },
+                        // c2
+                        { id: 's12', code: 'ท22101', name: 'ภาษาไทยพื้นฐาน', classId: 'c2', periodsPerWeek: 3, teacherId: 't2', roomId: '' },
+                        { id: 's13', code: 'ท22102', name: 'การเขียนเชิงสร้างสรรค์', classId: 'c2', periodsPerWeek: 1, teacherId: 't2', roomId: '' },
+                        { id: 's14', code: 'ค22103', name: 'คณิตศาสตร์พื้นฐาน', classId: 'c2', periodsPerWeek: 3, teacherId: 't3', roomId: '' },
+                        { id: 's15', code: 'ว22104', name: 'วิทยาศาสตร์พื้นฐาน', classId: 'c2', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's16', code: 'ส22105', name: 'สังคมศึกษา', classId: 'c2', periodsPerWeek: 2, teacherId: 't8', roomId: '' },
+                        { id: 's17', code: 'ส22106', name: 'หลักสูตรต้านทุจริตศึกษา', classId: 'c2', periodsPerWeek: 1, teacherId: 't7', roomId: '' },
+                        { id: 's18', code: 'พ22107', name: 'พลศึกษา', classId: 'c2', periodsPerWeek: 1, teacherId: 't9', roomId: 'r3' },
+                        { id: 's19', code: 'พ22108', name: 'สุขศึกษา', classId: 'c2', periodsPerWeek: 1, teacherId: 't9', roomId: '' },
+                        { id: 's20', code: 'อ22109', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c2', periodsPerWeek: 3, teacherId: 't13', roomId: '' },
+                        { id: 's21', code: 'ศ22110', name: 'ดนตรีและนาฏศิลป์', classId: 'c2', periodsPerWeek: 2, teacherId: 't11', roomId: '' },
+                        { id: 's22', code: 'ง22111', name: 'การงานอาชีพ', classId: 'c2', periodsPerWeek: 2, teacherId: 't12', roomId: '' },
+                        { id: 's23', code: 'ว22112', name: 'วิทยาการคำนวณ', classId: 'c2', periodsPerWeek: 2, teacherId: 't6', roomId: 'r1' },
+                        // c3
+                        { id: 's24', code: 'ท23101', name: 'ภาษาไทยพื้นฐาน', classId: 'c3', periodsPerWeek: 3, teacherId: 't1', roomId: '' },
+                        { id: 's25', code: 'ท23102', name: 'วรรณคดีมรดก', classId: 'c3', periodsPerWeek: 1, teacherId: 't1', roomId: '' },
+                        { id: 's26', code: 'ค23103', name: 'คณิตศาสตร์พื้นฐาน', classId: 'c3', periodsPerWeek: 3, teacherId: 't4', roomId: '' },
+                        { id: 's27', code: 'ว23104', name: 'วิทยาศาสตร์พื้นฐาน', classId: 'c3', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's28', code: 'ว23105', name: 'วิทยาศาสตร์โลกและอวกาศ', classId: 'c3', periodsPerWeek: 1, teacherId: 't3', roomId: '' },
+                        { id: 's29', code: 'ส23106', name: 'สังคมศึกษา', classId: 'c3', periodsPerWeek: 2, teacherId: 't7', roomId: '' },
+                        { id: 's30', code: 'ส23107', name: 'ท้องถิ่นของเรา', classId: 'c3', periodsPerWeek: 1, teacherId: 't7', roomId: '' },
+                        { id: 's31', code: 'อ23108', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c3', periodsPerWeek: 3, teacherId: 't13', roomId: '' },
+                        { id: 's32', code: 'อ23109', name: 'อังกฤษในชีวิตประจำวัน', classId: 'c3', periodsPerWeek: 1, teacherId: 't13', roomId: '' },
+                        { id: 's33', code: 'ส23110', name: 'หน้าที่พลเมือง', classId: 'c3', periodsPerWeek: 1, teacherId: 't10', roomId: '' },
+                        { id: 's34', code: 'พ23111', name: 'สุขศึกษาและพลศึกษา', classId: 'c3', periodsPerWeek: 2, teacherId: 't10', roomId: 'r3' },
+                        { id: 's35', code: 'ศ23112', name: 'ศิลปะ', classId: 'c3', periodsPerWeek: 1, teacherId: 't11', roomId: '' },
+                        { id: 's36', code: 'ว23113', name: 'การออกแบบผลิตภัณฑ์', classId: 'c3', periodsPerWeek: 2, teacherId: 't6', roomId: 'r1' },
+                        { id: 's37', code: 'ง23114', name: 'การปลูกเมล่อน', classId: 'c3', periodsPerWeek: 2, teacherId: 't12', roomId: '' },
+                        // c4
+                        { id: 's38', code: 'ท31101', name: 'ภาษาไทยพื้นฐาน', classId: 'c4', periodsPerWeek: 2, teacherId: 't2', roomId: '' },
+                        { id: 's39', code: 'ค31102', name: 'คณิตศาสตร์เพิ่มเติม', classId: 'c4', periodsPerWeek: 2, teacherId: 't3', roomId: '' },
+                        { id: 's40', code: 'ว31103', name: 'ฟิสิกส์', classId: 'c4', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's41', code: 'ว31104', name: 'เคมี', classId: 'c4', periodsPerWeek: 3, teacherId: 't5', roomId: 'r2' },
+                        { id: 's42', code: 'ว31105', name: 'วิทยาศาสตร์ชีวภาพ', classId: 'c4', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's43', code: 'อ31106', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c4', periodsPerWeek: 2, teacherId: 't13', roomId: '' },
+                        { id: 's44', code: 'ว31107', name: 'การเขียนโปรแกรม', classId: 'c4', periodsPerWeek: 2, teacherId: 't6', roomId: 'r1' },
+                        { id: 's45', code: 'ส31108', name: 'สังคมศึกษา', classId: 'c4', periodsPerWeek: 2, teacherId: 't7', roomId: '' },
+                        { id: 's46', code: 'พ31109', name: 'พลศึกษา', classId: 'c4', periodsPerWeek: 1, teacherId: 't9', roomId: 'r3' },
+                        { id: 's47', code: 'พ31110', name: 'สมรรถภาพทางกาย', classId: 'c4', periodsPerWeek: 2, teacherId: 't9', roomId: 'r3' },
+                        // c5
+                        { id: 's48', code: 'ท31101', name: 'ภาษาไทยเพื่อการสื่อสาร', classId: 'c5', periodsPerWeek: 2, teacherId: 't2', roomId: '' },
+                        { id: 's49', code: 'ท31102', name: 'การอ่านและพิจารณาหนังสือ', classId: 'c5', periodsPerWeek: 2, teacherId: 't1', roomId: '' },
+                        { id: 's50', code: 'ค31103', name: 'คณิตศาสตร์พื้นฐาน', classId: 'c5', periodsPerWeek: 2, teacherId: 't4', roomId: '' },
+                        { id: 's51', code: 'อ31104', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c5', periodsPerWeek: 3, teacherId: 't13', roomId: '' },
+                        { id: 's52', code: 'อ31105', name: 'อังกฤษในชีวิตประจำวัน', classId: 'c5', periodsPerWeek: 1, teacherId: 't13', roomId: '' },
+                        { id: 's53', code: 'ส31106', name: 'ประวัติศาสตร์', classId: 'c5', periodsPerWeek: 2, teacherId: 't8', roomId: '' },
+                        { id: 's54', code: 'ส31107', name: 'สังคมศึกษา', classId: 'c5', periodsPerWeek: 2, teacherId: 't7', roomId: '' },
+                        { id: 's55', code: 'ศ31108', name: 'ดนตรีสากล-ขับร้องสากล', classId: 'c5', periodsPerWeek: 2, teacherId: 't11', roomId: '' },
+                        { id: 's56', code: 'ศ31109', name: 'ดนตรีปฏิบัติ', classId: 'c5', periodsPerWeek: 2, teacherId: 't11', roomId: '' },
+                        { id: 's57', code: 'ส31110', name: 'หน้าที่พลเมือง', classId: 'c5', periodsPerWeek: 1, teacherId: 't10', roomId: '' },
+                        { id: 's58', code: 'พ31111', name: 'แบดมินตัน', classId: 'c5', periodsPerWeek: 2, teacherId: 't9', roomId: 'r3' },
+                        // c6
+                        { id: 's59', code: 'ท32101', name: 'ภาษาไทยพื้นฐาน', classId: 'c6', periodsPerWeek: 2, teacherId: 't1', roomId: '' },
+                        { id: 's60', code: 'ค32102', name: 'คณิตศาสตร์เพิ่มเติม', classId: 'c6', periodsPerWeek: 2, teacherId: 't4', roomId: '' },
+                        { id: 's61', code: 'ว32103', name: 'ฟิสิกส์', classId: 'c6', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's62', code: 'ว32104', name: 'เคมี', classId: 'c6', periodsPerWeek: 3, teacherId: 't5', roomId: 'r2' },
+                        { id: 's63', code: 'อ32105', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c6', periodsPerWeek: 2, teacherId: 't13', roomId: '' },
+                        { id: 's64', code: 'ว32106', name: 'วิทยาการคอมพิวเตอร์', classId: 'c6', periodsPerWeek: 2, teacherId: 't6', roomId: 'r1' },
+                        { id: 's65', code: 'ว32107', name: 'โลกดาราศาสตร์ และอวกาศ', classId: 'c6', periodsPerWeek: 2, teacherId: 't3', roomId: '' },
+                        { id: 's66', code: 'พ32108', name: 'สุขศึกษา', classId: 'c6', periodsPerWeek: 1, teacherId: 't10', roomId: '' },
+                        { id: 's67', code: 'พ32109', name: 'วอลเลย์บอล', classId: 'c6', periodsPerWeek: 2, teacherId: 't9', roomId: 'r3' },
+                        // c7
+                        { id: 's68', code: 'ท32101', name: 'การเขียนเชิงสร้างสรรค์', classId: 'c7', periodsPerWeek: 2, teacherId: 't2', roomId: '' },
+                        { id: 's69', code: 'ท32102', name: 'ภาษาไทยพื้นฐาน', classId: 'c7', periodsPerWeek: 2, teacherId: 't2', roomId: '' },
+                        { id: 's70', code: 'ค32103', name: 'คณิตศาสตร์พื้นฐาน', classId: 'c7', periodsPerWeek: 2, teacherId: 't3', roomId: '' },
+                        { id: 's71', code: 'อ32104', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c7', periodsPerWeek: 3, teacherId: 't13', roomId: '' },
+                        { id: 's72', code: 'อ32105', name: 'อังกฤษในชีวิตประจำวัน', classId: 'c7', periodsPerWeek: 1, teacherId: 't13', roomId: '' },
+                        { id: 's73', code: 'ส32106', name: 'ประวัติศาสตร์', classId: 'c7', periodsPerWeek: 2, teacherId: 't8', roomId: '' },
+                        { id: 's74', code: 'ส32107', name: 'หลักสูตรต้านทุจริตศึกษา', classId: 'c7', periodsPerWeek: 1, teacherId: 't7', roomId: '' },
+                        { id: 's75', code: 'ศ32108', name: 'นาฏศิลป์', classId: 'c7', periodsPerWeek: 2, teacherId: 't11', roomId: '' },
+                        { id: 's76', code: 'อ32109', name: 'การสื่อสารและการนำเสนอ', classId: 'c7', periodsPerWeek: 2, teacherId: 't11', roomId: '' },
+                        { id: 's77', code: 'พ32110', name: 'แอโรบิกแดนซ์', classId: 'c7', periodsPerWeek: 2, teacherId: 't9', roomId: 'r3' },
+                        { id: 's78', code: 'ง32111', name: 'การขยายพันธุ์พืช', classId: 'c7', periodsPerWeek: 1, teacherId: 't12', roomId: '' },
+                        // c8
+                        { id: 's79', code: 'ท33101', name: 'ภาษาไทยพื้นฐาน', classId: 'c8', periodsPerWeek: 2, teacherId: 't1', roomId: '' },
+                        { id: 's80', code: 'ค33102', name: 'คณิตศาสตร์เพิ่มเติม', classId: 'c8', periodsPerWeek: 2, teacherId: 't3', roomId: '' },
+                        { id: 's81', code: 'ว33103', name: 'ฟิสิกส์', classId: 'c8', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's82', code: 'ว33104', name: 'ชีววิทยา', classId: 'c8', periodsPerWeek: 2, teacherId: 't5', roomId: 'r2' },
+                        { id: 's83', code: 'อ33105', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c8', periodsPerWeek: 2, teacherId: 't13', roomId: '' },
+                        { id: 's84', code: 'ว33106', name: 'ช่างซ่อมบำรุงคอมพิวเตอร์', classId: 'c8', periodsPerWeek: 2, teacherId: 't6', roomId: 'r1' },
+                        { id: 's85', code: 'ว33107', name: 'การสร้างหนังสืออิเล็กทรอนิกส์', classId: 'c8', periodsPerWeek: 1, teacherId: 't6', roomId: 'r1' },
+                        { id: 's86', code: 'ว33108', name: 'วิทยาศาสตร์โลกและอวกาศ', classId: 'c8', periodsPerWeek: 1, teacherId: 't3', roomId: '' },
+                        { id: 's87', code: 'พ33109', name: 'เปตอง', classId: 'c8', periodsPerWeek: 1, teacherId: 't10', roomId: 'r3' },
+                        { id: 's88', code: 'พ33110', name: 'สุขศึกษาและพลศึกษา', classId: 'c8', periodsPerWeek: 1, teacherId: 't10', roomId: 'r3' },
+                        // c9
+                        { id: 's89', code: 'ท33101', name: 'ภาษาไทยเพื่อการสื่อสาร', classId: 'c9', periodsPerWeek: 2, teacherId: 't2', roomId: '' },
+                        { id: 's90', code: 'ท33102', name: 'การอ่านเพื่อความเข้าใจ', classId: 'c9', periodsPerWeek: 2, teacherId: 't1', roomId: '' },
+                        { id: 's91', code: 'ค33103', name: 'คณิตศาสตร์พื้นฐาน', classId: 'c9', periodsPerWeek: 2, teacherId: 't4', roomId: '' },
+                        { id: 's92', code: 'อ33104', name: 'ภาษาอังกฤษพื้นฐาน', classId: 'c9', periodsPerWeek: 3, teacherId: 't13', roomId: '' },
+                        { id: 's93', code: 'อ33105', name: 'อังกฤษในชีวิตประจำวัน', classId: 'c9', periodsPerWeek: 1, teacherId: 't13', roomId: '' },
+                        { id: 's94', code: 'ส33106', name: 'สังคมศึกษา', classId: 'c9', periodsPerWeek: 2, teacherId: 't8', roomId: '' },
+                        { id: 's95', code: 'ส33107', name: 'ท้องถิ่นของเรา', classId: 'c9', periodsPerWeek: 1, teacherId: 't7', roomId: '' },
+                        { id: 's96', code: 'ศ33108', name: 'ดนตรีและนาฏศิลป์', classId: 'c9', periodsPerWeek: 1, teacherId: 't11', roomId: '' },
+                        { id: 's97', code: 'ศ33109', name: 'ศิลปะ', classId: 'c9', periodsPerWeek: 1, teacherId: 't11', roomId: '' },
+                        { id: 's98', code: 'พ33110', name: 'การเคลื่อนไหวร่างกาย', classId: 'c9', periodsPerWeek: 1, teacherId: 't10', roomId: 'r3' },
+                        { id: 's99', code: 'ง33111', name: 'เกษตรท้องถิ่น', classId: 'c9', periodsPerWeek: 2, teacherId: 't12', roomId: '' },
+                        { id: 's100', code: 'พ32102', name: 'พลศึกษา', classId: 'c6', periodsPerWeek: 1, teacherId: 't10', roomId: 'r3' }
+                    ];
+
+                    this.selectedClassId = 'c1';
+                    this.selectedTeacherId = 't1';
+                    this.selectedRoomId = 'r1';
+
+                    this.matrices = {};
+                    this.autoGenerateSchedule();
+                },
+
+                async autoGenerateSchedule() {
+                    this.isGenerating = true;
+                    
+                    let bestMatrix = null;
+                    let lowestConflicts = 999;
+                    let bestAssigned = 0;
+
+                    for (let pass = 0; pass < 15; pass++) {
+                        let matrix = {};
+                        this.classes.forEach(c => {
+                            matrix[c.id] = {};
+                            this.settings.days.forEach((_, dIdx) => {
+                                matrix[c.id][dIdx] = {};
+                            });
+                        });
+
+                        let lessonPool = [];
+                        this.subjects.forEach(subj => {
+                            for (let i = 0; i < subj.periodsPerWeek; i++) {
+                                lessonPool.push({
+                                    subjectId: subj.id,
+                                    classId: subj.classId,
+                                    teacherId: subj.teacherId,
+                                    roomId: subj.roomId,
+                                    code: subj.code,
+                                    name: subj.name
+                                });
+                            }
+                        });
+
+                        // Sort by priority (room requirement & randomization)
+                        lessonPool.sort((a, b) => (b.roomId ? 2 : 0) - (a.roomId ? 2 : 0) + (Math.random() - 0.5));
+
+                        let assigned = 0;
+                        let conflicts = 0;
+
+                        for (let lesson of lessonPool) {
+                            let placed = false;
+                            let dayIndices = [0, 1, 2, 3, 4].sort(() => Math.random() - 0.5);
+
+                            for (let dIdx of dayIndices) {
+                                if (placed) break;
+
+                                for (let p = 1; p <= this.settings.periodsPerDay; p++) {
+                                    if (this.settings.fixLunchBreak && p === this.settings.lunchPeriod) continue;
+                                    if (matrix[lesson.classId][dIdx][p]) continue;
+                                    if (this.isTeacherBusy(matrix, lesson.teacherId, dIdx, p)) continue;
+                                    if (lesson.roomId && this.isRoomBusy(matrix, lesson.roomId, dIdx, p)) continue;
+
+                                    matrix[lesson.classId][dIdx][p] = { ...lesson };
+                                    placed = true;
+                                    assigned++;
+                                    break;
+                                }
+                            }
+
+                            if (!placed) conflicts++;
+                        }
+
+                        if (conflicts < lowestConflicts) {
+                            lowestConflicts = conflicts;
+                            bestMatrix = matrix;
+                            bestAssigned = assigned;
+                        }
+
+                        if (conflicts === 0) break;
+                    }
+
+                    await new Promise(r => setTimeout(r, 150));
+
+                    this.scheduleMatrix = bestMatrix;
+                    this.totalAssignedSlots = bestAssigned;
+                    this.conflictCount = lowestConflicts;
+                    this.isGenerating = false;
+                },
+
+                async autoFixConflicts() {
+                    this.autoGenerateSchedule();
+                },
+
+                recountStats() {
+                    let total = 0;
+                    if (!this.scheduleMatrix) return;
+                    for (let cId in this.scheduleMatrix) {
+                        for (let dIdx in this.scheduleMatrix[cId]) {
+                            for (let p in this.scheduleMatrix[cId][dIdx]) {
+                                if (this.scheduleMatrix[cId][dIdx][p]) total++;
+                            }
+                        }
+                    }
+                    this.totalAssignedSlots = total;
+                    this.conflictCount = 0;
+                },
+
+                isTeacherBusy(matrix, teacherId, dayIdx, period) {
+                    for (let cId in matrix) {
+                        if (matrix[cId][dayIdx]?.[period]?.teacherId === teacherId) return true;
+                    }
+                    return false;
+                },
+
+                isRoomBusy(matrix, roomId, dayIdx, period) {
+                    for (let cId in matrix) {
+                        if (matrix[cId][dayIdx]?.[period]?.roomId === roomId) return true;
+                    }
+                    return false;
+                },
+
+                getDayColorClass(dayIdx) {
+                    const colors = [
+                        'bg-amber-400',
+                        'bg-pink-400',
+                        'bg-emerald-500',
+                        'bg-orange-400',
+                        'bg-sky-400'
+                    ];
+                    return colors[dayIdx % colors.length];
+                },
+
+                getSlotData(dayIdx, period) {
+                    if (!this.scheduleMatrix) return null;
+
+                    if (this.viewMode === 'class') {
+                        if (!this.selectedClassId) return null;
+                        let item = this.scheduleMatrix[this.selectedClassId]?.[dayIdx]?.[period];
+                        if (!item) return null;
+                        return {
+                            subjectName: item.name,
+                            subjectCode: item.code,
+                            teacherName: this.getTeacherName(item.teacherId),
+                            className: this.getClassName(item.classId),
+                            roomName: item.roomId ? this.getRoomName(item.roomId) : '',
+                            color: this.getTeacherColor(item.teacherId)
+                        };
+                    } 
+                    else if (this.viewMode === 'teacher') {
+                        if (!this.selectedTeacherId) return null;
+                        for (let cId in this.scheduleMatrix) {
+                            let item = this.scheduleMatrix[cId]?.[dayIdx]?.[period];
+                            if (item && item.teacherId === this.selectedTeacherId) {
+                                return {
+                                    subjectName: item.name,
+                                    subjectCode: item.code,
+                                    teacherName: this.getTeacherName(item.teacherId),
+                                    className: this.getClassName(item.classId),
+                                    roomName: item.roomId ? this.getRoomName(item.roomId) : '',
+                                    color: this.getTeacherColor(item.teacherId)
+                                };
+                            }
+                        }
+                    } 
+                    else if (this.viewMode === 'room') {
+                        if (!this.selectedRoomId) return null;
+                        for (let cId in this.scheduleMatrix) {
+                            let item = this.scheduleMatrix[cId]?.[dayIdx]?.[period];
+                            if (item && item.roomId === this.selectedRoomId) {
+                                return {
+                                    subjectName: item.name,
+                                    subjectCode: item.code,
+                                    teacherName: this.getTeacherName(item.teacherId),
+                                    className: this.getClassName(item.classId),
+                                    roomName: item.roomId ? this.getRoomName(item.roomId) : '',
+                                    color: this.getTeacherColor(item.teacherId)
+                                };
+                            }
+                        }
+                    }
+                    return null;
+                },
+
+                getTimetableTitle() {
+                    if (this.viewMode === 'class') {
+                        let c = this.classes.find(x => x.id === this.selectedClassId);
+                        return c ? `ตารางเรียนประจำ${c.name}` : 'ตารางเรียนประจำชั้น';
+                    } else if (this.viewMode === 'teacher') {
+                        let t = this.teachers.find(x => x.id === this.selectedTeacherId);
+                        return t ? `ตารางสอนประจำตัว: ${t.name}` : 'ตารางสอนประจำตัวครู';
+                    } else if (this.viewMode === 'room') {
+                        let r = this.rooms.find(x => x.id === this.selectedRoomId);
+                        return r ? `ตารางการใช้ห้องพิเศษ: ${r.name}` : 'ตารางใช้ห้อง';
+                    }
+                    return 'ตารางสอนรวมทุกชั้นเรียน (Master Grid)';
+                },
+
+                getPeriodTime(periodNum) {
+                    const times = {
+                        0: '08:20 - 08:30',
+                        1: '08:30 - 09:20',
+                        2: '09:20 - 10:10',
+                        3: '10:10 - 11:00',
+                        4: '11:00 - 11:50',
+                        5: '11:50 - 13:00',
+                        6: '13:00 - 13:50',
+                        7: '13:50 - 14:40',
+                        8: '14:40 - 15:30'
+                    };
+                    return times[periodNum] || '';
+                },
+
+                openSlotModal(dayIdx, period) {
+                    if (period === this.settings.lunchPeriod && this.settings.fixLunchBreak) return;
+                    if (this.viewMode !== 'class' || !this.selectedClassId) return;
+
+                    this.editingSlot = { dayIdx, period };
+                    let currentItem = this.scheduleMatrix[this.selectedClassId]?.[dayIdx]?.[period];
+                    this.selectedSubjectForSlot = currentItem ? currentItem.subjectId : '';
+                    this.showSlotModal = true;
+                },
+
+                getAvailableSubjectsForClass(classId) {
+                    return this.subjects.filter(s => s.classId === classId);
+                },
+
+                getExtraSubjectOptions(classId) {
+                    const mine = this.subjects.filter(s => s.classId === classId);
+                    const opts = [];
+                    this.teachers.forEach(t => {
+                        (TEACHER_SUBJECT_CATALOG[t.id] || []).forEach(name => {
+                            if (!mine.some(s => s.teacherId === t.id && s.name === name)) {
+                                opts.push({ value: 'new|' + t.id + '|' + name, teacherId: t.id, name });
+                            }
+                        });
+                    });
+                    return opts;
+                },
+
+                createSubjectFromOption(classId, value) {
+                    const [, teacherId, ...rest] = value.split('|');
+                    const name = rest.join('|');
+                    const same = this.subjects.find(s => s.name === name);
+                    const inClass = this.subjects.filter(s => s.classId === classId);
+                    const letter = ((same && same.code) || 'ว').charAt(0);
+                    const lvl = ((inClass[0] && inClass[0].code) || '').slice(1, 3);
+                    const code = letter + lvl + '9' + String(inClass.length + 1).padStart(2, '0');
+                    const subj = {
+                        id: 's' + Date.now() + Math.floor(Math.random() * 1000),
+                        code, name, classId, periodsPerWeek: 0, teacherId,
+                        roomId: same ? same.roomId : ''
+                    };
+                    this.subjects.push(subj);
+                    return subj;
+                },
+
+                saveSlotEdit() {
+                    if (!this.scheduleMatrix || !this.selectedClassId) return;
+                    let { dayIdx, period } = this.editingSlot;
+
+                    if (!this.selectedSubjectForSlot) {
+                        delete this.scheduleMatrix[this.selectedClassId][dayIdx][period];
+                    } else {
+                        let subj;
+                        if (String(this.selectedSubjectForSlot).startsWith('new|')) {
+                            subj = this.createSubjectFromOption(this.selectedClassId, this.selectedSubjectForSlot);
+                        } else {
+                            subj = this.subjects.find(s => s.id === this.selectedSubjectForSlot);
+                        }
+                        if (subj) {
+                            this.scheduleMatrix[this.selectedClassId][dayIdx][period] = {
+                                subjectId: subj.id,
+                                classId: subj.classId,
+                                teacherId: subj.teacherId,
+                                roomId: subj.roomId,
+                                code: subj.code,
+                                name: subj.name
+                            };
+                        }
+                    }
+                    this.showSlotModal = false;
+                    this.recountStats();
+                },
+
+                clearCurrentSlot() {
+                    if (!this.scheduleMatrix || !this.selectedClassId) return;
+                    let { dayIdx, period } = this.editingSlot;
+                    delete this.scheduleMatrix[this.selectedClassId][dayIdx][period];
+                    this.showSlotModal = false;
+                    this.recountStats();
+                },
+
+                getTeacherWorkload(teacherId) {
+                    return this.subjects
+                        .filter(s => s.teacherId === teacherId)
+                        .reduce((sum, s) => sum + (parseInt(s.periodsPerWeek) || 0), 0);
+                },
+
+                getClassSubjectCount(classId) {
+                    return this.subjects.filter(s => s.classId === classId).length;
+                },
+
+                getTeacherName(id) {
+                    return this.teachers.find(t => t.id === id)?.name || 'ไม่ระบุ';
+                },
+
+                getTeacherColor(id) {
+                    return this.teachers.find(t => t.id === id)?.color || '#3b82f6';
+                },
+
+                getClassName(id) {
+                    return this.classes.find(c => c.id === id)?.name || 'ไม่ระบุ';
+                },
+
+                getRoomName(id) {
+                    return this.rooms.find(r => r.id === id)?.name || '';
+                },
+
+                // Teacher Modal Actions
+                openTeacherModal(teacher = null) {
+                    this.editingTeacher = teacher ? { ...teacher } : { id: '', code: '', name: '', color: '#3b82f6' };
+                    this.showTeacherModal = true;
+                },
+                saveTeacher() {
+                    if (!this.editingTeacher.name) return;
+                    if (this.editingTeacher.id) {
+                        let idx = this.teachers.findIndex(t => t.id === this.editingTeacher.id);
+                        if (idx !== -1) this.teachers[idx] = { ...this.editingTeacher };
+                    } else {
+                        this.teachers.push({ ...this.editingTeacher, id: 't_' + Date.now() });
+                    }
+                    this.showTeacherModal = false;
+                },
+                deleteTeacher(id) {
+                    this.teachers = this.teachers.filter(t => t.id !== id);
+                },
+
+                // Class Modal Actions
+                openClassModal(cls = null) {
+                    this.editingClass = cls ? { ...cls } : { id: '', name: '' };
+                    this.showClassModal = true;
+                },
+                saveClass() {
+                    if (!this.editingClass.name) return;
+                    if (this.editingClass.id) {
+                        let idx = this.classes.findIndex(c => c.id === this.editingClass.id);
+                        if (idx !== -1) this.classes[idx] = { ...this.editingClass };
+                    } else {
+                        let newId = 'c_' + Date.now();
+                        this.classes.push({ ...this.editingClass, id: newId });
+                        if (!this.selectedClassId) this.selectedClassId = newId;
+                    }
+                    this.showClassModal = false;
+                },
+                deleteClass(id) {
+                    this.classes = this.classes.filter(c => c.id !== id);
+                },
+
+                // Subject Modal Actions
+                openSubjectModal(subject = null) {
+                    this.editingSubject = subject ? { ...subject } : { 
+                        id: '', code: '', name: '', 
+                        classId: this.classes[0]?.id || '', 
+                        periodsPerWeek: 3, 
+                        teacherId: this.teachers[0]?.id || '', 
+                        roomId: '' 
+                    };
+                    this.showSubjectModal = true;
+                },
+                saveSubject() {
+                    if (!this.editingSubject.name) return;
+                    if (this.editingSubject.id) {
+                        let idx = this.subjects.findIndex(s => s.id === this.editingSubject.id);
+                        if (idx !== -1) this.subjects[idx] = { ...this.editingSubject };
+                    } else {
+                        this.subjects.push({ ...this.editingSubject, id: 's_' + Date.now() });
+                    }
+                    this.showSubjectModal = false;
+                },
+                deleteSubject(id) {
+                    this.subjects = this.subjects.filter(s => s.id !== id);
+                },
+
+                // Room Modal Actions
+                openRoomModal(room = null) {
+                    this.editingRoom = room ? { ...room } : { id: '', name: '', location: '' };
+                    this.showRoomModal = true;
+                },
+                saveRoom() {
+                    if (!this.editingRoom.name) return;
+                    if (this.editingRoom.id) {
+                        let idx = this.rooms.findIndex(r => r.id === this.editingRoom.id);
+                        if (idx !== -1) this.rooms[idx] = { ...this.editingRoom };
+                    } else {
+                        this.rooms.push({ ...this.editingRoom, id: 'r_' + Date.now() });
+                    }
+                    this.showRoomModal = false;
+                },
+                deleteRoom(id) {
+                    this.rooms = this.rooms.filter(r => r.id !== id);
+                },
+
+                printTimetable() {
+                    window.print();
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
